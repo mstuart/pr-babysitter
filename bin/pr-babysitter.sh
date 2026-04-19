@@ -259,8 +259,11 @@ ${EXTRA_RULES}"
 
     claude -p \
       --model "$MODEL" \
+      --output-format stream-json \
       --allowedTools "Bash,Read,Write,Edit,Glob,Grep" \
-      "$prompt" >>"$LOG_FILE" 2>&1 || true
+      "$prompt" 2>>"$LOG_FILE" \
+      | jq -r --unbuffered 'select(.type == "assistant") | .message.content[]? | select(.type == "text") | .text // empty' \
+      >>"$LOG_FILE" || true
   ) || log "PR #$number ($title): subshell failed (clone/checkout/install error)"
 
   # Clean up temp dir
