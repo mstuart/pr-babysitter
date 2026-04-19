@@ -410,51 +410,78 @@ cmd_status() {
   echo ""
 }
 
+render_header() {
+  cmd_status 2>&1
+  echo -e "${BOLD}Live Log${NC} ${DIM}(streaming — Ctrl+C to exit)${NC}"
+  echo -e "${DIM}─────────────────────────────────────────────────────────────────────${NC}"
+}
+
+count_header_lines() {
+  local term_cols="$1" content="$2" lines=0
+  while IFS= read -r line; do
+    local stripped
+    stripped=$(echo -e "$line" | sed 's/\x1b\[[0-9;]*m//g')
+    local len=${#stripped}
+    if [ "$len" -eq 0 ]; then
+      lines=$((lines + 1))
+    else
+      lines=$((lines + (len + term_cols - 1) / term_cols))
+    fi
+  done <<< "$content"
+  echo "$lines"
+}
+
 cmd_dashboard() {
   require_config
 
-  # Render header into a variable to count lines
-  local header
-  header=$(cmd_status 2>&1; echo -e "${BOLD}Live Log${NC} ${DIM}(streaming — Ctrl+C to exit)${NC}"; echo -e "${DIM}─────────────────────────────────────────────────────────────────────${NC}")
-
-  # Count how many terminal lines the header occupies
-  local term_rows term_cols header_lines
+  local term_rows term_cols header header_lines log_start
   term_rows=$(tput lines)
   term_cols=$(tput cols)
-  # Count lines accounting for line wrapping
-  header_lines=0
-  while IFS= read -r line; do
-    stripped=$(echo -e "$line" | sed 's/\x1b\[[0-9;]*m//g')
-    line_len=${#stripped}
-    if [ "$line_len" -eq 0 ]; then
-      header_lines=$((header_lines + 1))
-    else
-      header_lines=$((header_lines + (line_len + term_cols - 1) / term_cols))
-    fi
-  done <<< "$header"
 
-  # Leave at least 10 rows for logs
-  if [ "$header_lines" -gt $((term_rows - 10)) ]; then
-    header_lines=$((term_rows - 10))
-  fi
+  # Initial render
+  header=$(render_header)
+  header_lines=$(count_header_lines "$term_cols" "$header")
+  [ "$header_lines" -gt $((term_rows - 10)) ] && header_lines=$((term_rows - 10))
+  log_start=$((header_lines + 1))
 
-  local log_start=$((header_lines + 1))
-
-  # Reset terminal
   clear
   tput cup 0 0
-
-  # Draw header
   echo -e "$header" | head -"$header_lines"
 
-  # Set scroll region to everything below the header
+  # Set scroll region below the header
   printf '\033[%d;%dr' "$log_start" "$term_rows"
-
-  # Move cursor to scroll region
   tput cup "$log_start" 0
 
-  # Restore scroll region on exit
-  trap 'printf "\033[r"; tput cup "$term_rows" 0; echo' EXIT INT TERM
+  # Background: refresh header every 30s
+  (
+    while true; do
+      sleep 30
+      local new_header new_lines
+      new_header=$(render_header 2>/dev/null)
+      new_lines=$(count_header_lines "$term_cols" "$new_header")
+      [ "$new_lines" -gt $((term_rows - 10)) ] && new_lines=$((term_rows - 10))
+
+      # Save cursor, redraw header, restore cursor
+      printf '\033[s'          # save cursor
+      printf '\033[r'          # reset scroll region temporarily
+      tput cup 0 0             # move to top
+      # Clear header area
+      for ((i=0; i<header_lines; i++)); do
+        printf '\033[2K\n'     # clear each line
+      done
+      tput cup 0 0             # back to top
+      echo -e "$new_header" | head -"$new_lines"
+
+      header_lines=$new_lines
+      log_start=$((header_lines + 1))
+      printf '\033[%d;%dr' "$log_start" "$term_rows"  # restore scroll region
+      printf '\033[u'          # restore cursor
+    done
+  ) &
+  local refresh_pid=$!
+
+  # Clean up on exit
+  trap 'kill '"$refresh_pid"' 2>/dev/null; printf "\033[r"; tput cup "$term_rows" 0; echo' EXIT INT TERM
 
   # Stream logs in the scroll region
   touch "$LOG_FILE"
