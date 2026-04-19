@@ -194,9 +194,9 @@ echo "$fixable" | jq -c '.[]' | while read -r pr; do
 
   (
     cd "$work_dir"
-    gh repo clone "$REPO" . 2>>"$LOG_FILE"
-    gh pr checkout "$number" 2>>"$LOG_FILE"
-    eval "$INSTALL_CMD" 2>>"$LOG_FILE"
+    gh repo clone "$REPO" . >>"$LOG_FILE" 2>&1
+    gh pr checkout "$number" >>"$LOG_FILE" 2>&1
+    eval "$INSTALL_CMD" >>"$LOG_FILE" 2>&1
 
     # Build the prompt
     if [ -n "$PROMPT_FILE" ] && [ -f "$PROMPT_FILE" ]; then
@@ -260,7 +260,7 @@ ${EXTRA_RULES}"
     claude -p \
       --model "$MODEL" \
       --allowedTools "Bash,Read,Write,Edit,Glob,Grep" \
-      "$prompt" 2>>"$LOG_FILE" || true
+      "$prompt" >>"$LOG_FILE" 2>&1 || true
   ) || log "PR #$number ($title): subshell failed (clone/checkout/install error)"
 
   # Clean up temp dir
