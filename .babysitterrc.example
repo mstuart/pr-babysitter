@@ -1,0 +1,46 @@
+# PR Babysitter configuration
+# Copy this to .babysitterrc in your repo root and edit it.
+# Docs: https://github.com/mstuart/pr-babysitter
+
+# Required: GitHub repo in owner/name format
+BABYSITTER_REPO="owner/repo"
+
+# Required: GitHub username — only PRs by this author are watched
+BABYSITTER_AUTHOR="your-github-username"
+
+# Max fix attempts per PR before giving up (default: 10)
+# BABYSITTER_MAX_ATTEMPTS=10
+
+# Claude model to use (default: sonnet)
+# BABYSITTER_MODEL=sonnet
+
+# Interval in seconds for launchd (default: 300 = 5 min)
+# BABYSITTER_INTERVAL=300
+
+# Data directory for logs and lock files
+# BABYSITTER_DATA_DIR=$HOME/.local/share/pr-babysitter
+
+# --- Project-specific commands ------------------------------------------------
+# Override these if your project doesn't use npm.
+
+# Install dependencies after checkout
+# BABYSITTER_INSTALL_CMD="npm ci --prefer-offline --no-audit --no-fund"
+
+# Type checking / build verification
+# BABYSITTER_VERIFY_CMD="npm run verify"
+
+# Run tests
+# BABYSITTER_TEST_CMD="npm test"
+
+# Lint and auto-fix
+# BABYSITTER_LINT_CMD="npm run lint:fix"
+
+# --- Custom prompt ------------------------------------------------------------
+# Point to a file with a custom Claude prompt template.
+# Variables available via envsubst: $REPO, $NUMBER, $TITLE, $ATTEMPT, $MAX,
+# $MERGEABLE, $FAILING, $UNRESOLVED, $VERIFY_CMD, $TEST_CMD, $LINT_CMD
+# BABYSITTER_PROMPT_FILE=""
+
+# Extra rules appended to the default prompt (one per line).
+# BABYSITTER_EXTRA_RULES="- This is a monorepo with Turborepo
+# - NEVER run dangerous-command"
