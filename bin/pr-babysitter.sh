@@ -156,7 +156,7 @@ echo "$fixable" | jq -c '.[]' | while read -r pr; do
   # If branch is behind main, update it via API (no Claude tokens needed)
   if [ "$merge_state" = "BEHIND" ]; then
     log "PR #$number ($title): branch behind main — updating via API"
-    gh api "repos/$REPO/pulls/$number/update-branch" -X PUT -f expected_head_oid="" >>"$LOG_FILE" 2>&1 || \
+    gh api "repos/$REPO/pulls/$number/update-branch" -X PUT >>"$LOG_FILE" 2>&1 || \
       log "PR #$number ($title): API branch update failed, will try merge on next cycle"
     continue
   fi
