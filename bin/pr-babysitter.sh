@@ -177,7 +177,7 @@ echo "$fixable" | jq -c '.[]' | while read -r pr; do
 
   (
     cd "$work_dir"
-    gh repo clone "$REPO" . -- --depth=50 2>>"$LOG_FILE"
+    gh repo clone "$REPO" . 2>>"$LOG_FILE"
     gh pr checkout "$number" 2>>"$LOG_FILE"
     eval "$INSTALL_CMD" 2>>"$LOG_FILE"
 
@@ -244,13 +244,13 @@ ${EXTRA_RULES}"
       --model "$MODEL" \
       --allowedTools "Bash,Read,Write,Edit,Glob,Grep" \
       "$prompt" 2>>"$LOG_FILE" || true
-  )
+  ) || log "PR #$number ($title): subshell failed (clone/checkout/install error)"
 
   # Clean up temp dir
   rm -rf "$work_dir"
   trap 'rm -f "$LOCK_FILE"' EXIT
 
-  # Update attempt labels
+  # Always update attempt labels — even on failure, so we don't retry forever
   if [ "$current" -gt 0 ]; then
     gh pr edit "$number" --repo "$REPO" --remove-label "babysitter-attempt-$current" 2>/dev/null || true
   fi
