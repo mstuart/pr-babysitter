@@ -268,13 +268,20 @@ RULES:
 ${EXTRA_RULES}"
     fi
 
+    # Write prompt to file to avoid shell escaping issues with pipes
+    local prompt_file
+    prompt_file=$(mktemp)
+    printf '%s' "$prompt" > "$prompt_file"
+
     claude -p \
       --model "$MODEL" \
       --output-format stream-json \
       --allowedTools "Bash,Read,Write,Edit,Glob,Grep" \
-      "$prompt" 2>>"$LOG_FILE" \
+      < "$prompt_file" 2>>"$LOG_FILE" \
       | jq -r --unbuffered 'select(.type == "assistant") | .message.content[]? | select(.type == "text") | .text // empty' \
       >>"$LOG_FILE" || true
+
+    rm -f "$prompt_file"
   ) || log "PR #$number ($title): subshell failed (clone/checkout/install error)"
 
   # Clean up temp dir
