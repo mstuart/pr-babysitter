@@ -9,7 +9,19 @@
 #
 set -euo pipefail
 
-# Ensure PATH includes common binary locations
+# Ensure PATH includes common binary locations.
+# launchd doesn't source shell profiles, so node/npm from version managers
+# (nvm, fnm, volta, asdf) won't be on PATH. Source the user's profile to
+# pick them up, then allow BABYSITTER_PATH to prepend additional paths.
+for rc in "$HOME/.zshrc" "$HOME/.bashrc" "$HOME/.bash_profile" "$HOME/.profile"; do
+  if [ -f "$rc" ]; then
+    set +euo pipefail  # profiles aren't strict-mode safe
+    # shellcheck source=/dev/null
+    source "$rc" 2>/dev/null || true
+    set -euo pipefail
+    break
+  fi
+done
 export PATH="/opt/homebrew/bin:/usr/local/bin:$HOME/.local/bin:$PATH"
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -48,6 +60,11 @@ load_config() {
 load_config
 
 # --- Defaults (config can override any of these) -----------------------------
+
+# Prepend extra PATH entries from config (e.g. nvm/fnm/volta bin dirs)
+if [ -n "${BABYSITTER_PATH:-}" ]; then
+  export PATH="$BABYSITTER_PATH:$PATH"
+fi
 
 REPO="${BABYSITTER_REPO:?BABYSITTER_REPO is required (e.g. owner/repo)}"
 AUTHOR="${BABYSITTER_AUTHOR:?BABYSITTER_AUTHOR is required (GitHub username)}"
