@@ -147,8 +147,19 @@ echo "$fixable" | jq -c '.[]' | while read -r pr; do
   number=$(echo "$pr" | jq -r '.number')
   title=$(echo "$pr" | jq -r '.title')
 
-  # Check mergeable status
-  mergeable=$(gh pr view "$number" --repo "$REPO" --json mergeable --jq '.mergeable' 2>/dev/null || echo "UNKNOWN")
+  # Check mergeable and behind-main status
+  pr_state=$(gh pr view "$number" --repo "$REPO" --json mergeable,mergeStateStatus \
+    --jq '{mergeable, mergeStateStatus}' 2>/dev/null || echo '{}')
+  mergeable=$(echo "$pr_state" | jq -r '.mergeable // "UNKNOWN"')
+  merge_state=$(echo "$pr_state" | jq -r '.mergeStateStatus // "UNKNOWN"')
+
+  # If branch is behind main, update it via API (no Claude tokens needed)
+  if [ "$merge_state" = "BEHIND" ]; then
+    log "PR #$number ($title): branch behind main — updating via API"
+    gh api "repos/$REPO/pulls/$number/update-branch" -X PUT -f expected_head_oid="" >>"$LOG_FILE" 2>&1 || \
+      log "PR #$number ($title): API branch update failed, will try merge on next cycle"
+    continue
+  fi
 
   # Check for failing CI checks
   failing=$(gh pr checks "$number" --repo "$REPO" 2>&1 | grep -cE "^.*\tfail" || true)
