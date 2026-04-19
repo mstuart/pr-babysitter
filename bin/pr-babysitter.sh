@@ -209,6 +209,9 @@ echo "$fixable" | jq -c '.[]' | while read -r pr; do
   (
     cd "$work_dir"
 
+    # Export GH token so Claude's sandboxed Bash can use gh CLI
+    export GH_TOKEN="${GH_TOKEN:-$(gh auth token 2>/dev/null || echo "")}"
+
     # Clean any leftover state from previous runs
     git checkout -- . >>"$LOG_FILE" 2>&1 || true
     git clean -fd >>"$LOG_FILE" 2>&1 || true
