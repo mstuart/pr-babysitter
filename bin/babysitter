@@ -346,7 +346,7 @@ cmd_status() {
   fi
 
   if [ -f "$LOG_FILE" ]; then
-    last_run=$(grep "^\\[" "$LOG_FILE" 2>/dev/null | tail -1 | sed 's/\[//' | sed 's/\].*//')
+    last_run=$(grep "^\\[" "$LOG_FILE" 2>/dev/null | tail -1 | sed 's/\[//' | sed 's/\].*//' || true)
     [ -n "$last_run" ] && echo -e "  Last log: ${DIM}$last_run${NC}"
   fi
 
@@ -367,6 +367,7 @@ cmd_status() {
     return 0
   fi
 
+  # Subshell pipeline — use `|| true` to prevent pipefail from killing set -e
   echo "$prs" | jq -c '.[]' | while read -r pr; do
     number=$(echo "$pr" | jq -r '.number')
     title=$(echo "$pr" | jq -r '.title')
@@ -397,7 +398,7 @@ cmd_status() {
       }}" --jq '[.data.repository.pullRequest.reviewThreads.nodes[] | select(.isResolved == false)] | length' 2>/dev/null || echo "0")
 
     pr_status_line "$number" "$title" "$mergeable" "$failing" "$unresolved" "$attempt"
-  done
+  done || true
 
   echo ""
 }
