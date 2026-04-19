@@ -199,15 +199,38 @@ echo "$fixable" | jq -c '.[]' | while read -r pr; do
 
   log "PR #$number ($title): fixing (attempt $next/$MAX_ATTEMPTS) mergeable=$mergeable failing=$failing unresolved=$unresolved"
 
-  # Clone fresh into a temp directory
-  work_dir=$(mktemp -d)
-  trap 'rm -rf "$work_dir"; rm -f "$LOCK_FILE"' EXIT
+  # Use a persistent worktree — clone once, reuse across cycles
+  work_dir="$DATA_DIR/repo"
+  if [ ! -d "$work_dir/.git" ]; then
+    log "PR #$number: cloning repo (first run)"
+    gh repo clone "$REPO" "$work_dir" >>"$LOG_FILE" 2>&1
+  fi
 
   (
     cd "$work_dir"
-    gh repo clone "$REPO" . >>"$LOG_FILE" 2>&1
+
+    # Clean any leftover state from previous runs
+    git checkout -- . >>"$LOG_FILE" 2>&1 || true
+    git clean -fd >>"$LOG_FILE" 2>&1 || true
+
+    # Fetch latest and checkout PR branch
+    git fetch --all --prune >>"$LOG_FILE" 2>&1
     gh pr checkout "$number" >>"$LOG_FILE" 2>&1
-    eval "$INSTALL_CMD" >>"$LOG_FILE" 2>&1
+    git reset --hard >>"$LOG_FILE" 2>&1
+
+    # Only reinstall if lockfile changed
+    local lockfile_hash_before=""
+    local lockfile_hash_after=""
+    [ -f "$DATA_DIR/.lockfile-hash" ] && lockfile_hash_before=$(cat "$DATA_DIR/.lockfile-hash")
+    lockfile_hash_after=$(md5 -q package-lock.json 2>/dev/null || md5sum package-lock.json 2>/dev/null | cut -d' ' -f1)
+
+    if [ "$lockfile_hash_before" != "$lockfile_hash_after" ] || [ ! -d "node_modules" ]; then
+      log "PR #$number: installing dependencies (lockfile changed or node_modules missing)"
+      eval "$INSTALL_CMD" >>"$LOG_FILE" 2>&1
+      echo "$lockfile_hash_after" > "$DATA_DIR/.lockfile-hash"
+    else
+      log "PR #$number: dependencies up to date, skipping install"
+    fi
 
     # Build the prompt
     if [ -n "$PROMPT_FILE" ] && [ -f "$PROMPT_FILE" ]; then
@@ -284,10 +307,6 @@ ${EXTRA_RULES}"
 
     rm -f "$prompt_file"
   ) || log "PR #$number ($title): subshell failed (clone/checkout/install error)"
-
-  # Clean up temp dir
-  rm -rf "$work_dir"
-  trap 'rm -f "$LOCK_FILE"' EXIT
 
   # Always update attempt labels — even on failure, so we don't retry forever
   if [ "$current" -gt 0 ]; then
