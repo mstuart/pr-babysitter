@@ -275,6 +275,7 @@ ${EXTRA_RULES}"
 
     claude -p \
       --model "$MODEL" \
+      --verbose \
       --output-format stream-json \
       --allowedTools "Bash,Read,Write,Edit,Glob,Grep" \
       < "$prompt_file" 2>>"$LOG_FILE" \
