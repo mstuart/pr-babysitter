@@ -405,22 +405,15 @@ cmd_status() {
 
 cmd_dashboard() {
   require_config
-  local interval="${1:-30}"
-  while true; do
-    clear
-    echo -e "${DIM}$(date '+%Y-%m-%d %H:%M:%S') — refreshing every ${interval}s (Ctrl+C to exit)${NC}"
-    cmd_status
-    echo -e "${BOLD}Recent Activity${NC}"
-    echo -e "${DIM}─────────────────────────────────────────────────────────────────────${NC}"
-    if [ -f "$LOG_FILE" ]; then
-      tail -10 "$LOG_FILE" | while IFS= read -r line; do
-        echo -e "  ${DIM}$line${NC}"
-      done
-    else
-      echo -e "  ${DIM}No activity yet${NC}"
-    fi
-    echo ""
-    sleep "$interval"
+  clear
+  cmd_status
+  echo -e "${BOLD}Live Log${NC} ${DIM}(streaming — Ctrl+C to exit)${NC}"
+  echo -e "${DIM}─────────────────────────────────────────────────────────────────────${NC}"
+
+  # Show recent history then stream new entries
+  touch "$LOG_FILE"
+  tail -20f "$LOG_FILE" | while IFS= read -r line; do
+    echo -e "  ${DIM}$line${NC}"
   done
 }
 
