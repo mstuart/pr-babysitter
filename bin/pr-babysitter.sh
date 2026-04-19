@@ -219,10 +219,10 @@ echo "$fixable" | jq -c '.[]' | while read -r pr; do
     git reset --hard >>"$LOG_FILE" 2>&1
 
     # Only reinstall if lockfile changed
-    local lockfile_hash_before=""
-    local lockfile_hash_after=""
+    lockfile_hash_before=""
+    lockfile_hash_after=""
     [ -f "$DATA_DIR/.lockfile-hash" ] && lockfile_hash_before=$(cat "$DATA_DIR/.lockfile-hash")
-    lockfile_hash_after=$(md5 -q package-lock.json 2>/dev/null || md5sum package-lock.json 2>/dev/null | cut -d' ' -f1)
+    lockfile_hash_after=$(md5 -q package-lock.json 2>/dev/null || md5sum package-lock.json 2>/dev/null | cut -d' ' -f1 || echo "unknown")
 
     if [ "$lockfile_hash_before" != "$lockfile_hash_after" ] || [ ! -d "node_modules" ]; then
       log "PR #$number: installing dependencies (lockfile changed or node_modules missing)"
@@ -292,7 +292,6 @@ ${EXTRA_RULES}"
     fi
 
     # Write prompt to file to avoid shell escaping issues with pipes
-    local prompt_file
     prompt_file=$(mktemp)
     printf '%s' "$prompt" > "$prompt_file"
 
